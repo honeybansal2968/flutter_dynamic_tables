@@ -2,7 +2,6 @@
 /// 1. Add or remove or update columns
 /// 2. Add or remove or update rows
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,21 +13,44 @@ class DynamicTable extends StatelessWidget {
   final double columnWidth;
   final double tableHeight;
   final Color tableColor;
+  final String tableTitle;
   final Color columnColor;
   final Color cellColor;
+  final List<String> columns;
+  final List rows;
+  final Function? onColumnAdd;
+  final Function? onColumnDelete;
+  final Function? onColumnEdit;
+  final Function? onRowAdd;
+  final Function? onRowEdit;
+  final Function? onRowDelete;
+  final bool tableReadOnly;
+  final TextStyle tableTitleStyle;
   const DynamicTable(
       {super.key,
+      required this.tableTitle,
+      this.tableTitleStyle = const TextStyle(fontWeight: FontWeight.bold),
+      this.tableReadOnly = false,
       this.columnWidth = 100,
       this.tableHeight = 500,
       this.tableColor = const Color.fromARGB(255, 141, 255, 144),
       this.columnColor = const Color.fromARGB(255, 255, 255, 255),
-      this.cellColor = const Color.fromARGB(255, 255, 255, 255)});
+      this.cellColor = const Color.fromARGB(255, 255, 255, 255),
+      this.columns = const [],
+      this.onColumnAdd,
+      this.onColumnDelete,
+      this.onColumnEdit,
+      this.onRowAdd,
+      this.onRowEdit,
+      this.onRowDelete,
+      this.rows = const []});
 
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return GetBuilder<TableController>(
-        init: TableController(),
+        init: TableController(
+            columns: columns, tableMatrix: rows, columnWidth: columnWidth),
         builder: (controller) {
           return SizedBox(
             height: tableHeight,
@@ -48,53 +70,59 @@ class DynamicTable extends StatelessWidget {
                       child: Center(
                         child: Text(
                           "Enterprise Table",
-                          style: GoogleFonts.roboto(),
+                          style: tableTitleStyle,
                         ),
                       ),
                     ),
-                    Positioned(
-                      right: 110,
-                      top: 10,
-                      child: InkWell(
-                          onTap: () {
-                            AddNewColumnDialog(context);
-                          },
-                          child: const Row(
-                            children: [
-                              Icon(Icons.view_column_rounded),
-                              Text("Add Column")
-                            ],
-                          )),
-                    ),
-                    Positioned(
-                      right: 20,
-                      top: 10,
-                      child: InkWell(
-                          onTap: () {
-                            controller.columns.isNotEmpty
-                                ? AddNewRowDialog(context, columnWidth)
-                                : () {};
-                          },
-                          child: controller.columns.isNotEmpty
-                              ? const Row(
+                    tableReadOnly
+                        ? Container()
+                        : Positioned(
+                            right: 110,
+                            top: 10,
+                            child: InkWell(
+                                onTap: () {
+                                  AddNewColumnDialog(context, onColumnAdd);
+                                },
+                                child: const Row(
                                   children: [
-                                    Icon(Icons.table_rows),
-                                    Text("Add Row")
-                                  ],
-                                )
-                              : const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.table_rows,
-                                      color: Colors.grey,
-                                    ),
-                                    Text(
-                                      "Add Row",
-                                      style: TextStyle(color: Colors.grey),
-                                    )
+                                    Icon(Icons.view_column_rounded),
+                                    Text("Add Column")
                                   ],
                                 )),
-                    ),
+                          ),
+                    tableReadOnly
+                        ? Container()
+                        : Positioned(
+                            right: 20,
+                            top: 10,
+                            child: InkWell(
+                                onTap: () {
+                                  controller.columns.isNotEmpty
+                                      ? AddNewRowDialog(context, columnWidth,
+                                          onRowAdd ?? () {})
+                                      : () {};
+                                },
+                                child: controller.columns.isNotEmpty
+                                    ? const Row(
+                                        children: [
+                                          Icon(Icons.table_rows),
+                                          Text("Add Row")
+                                        ],
+                                      )
+                                    : const Row(
+                                        children: [
+                                          Icon(
+                                            Icons.table_rows,
+                                            color: Colors.grey,
+                                          ),
+                                          Text(
+                                            "Add Row",
+                                            style:
+                                                TextStyle(color: Colors.grey),
+                                          )
+                                        ],
+                                      )),
+                          ),
                   ],
                 ),
                 // columns
@@ -108,14 +136,19 @@ class DynamicTable extends StatelessWidget {
                               title: controller.columns[index],
                               columnWidth: columnWidth)),
                     ),
-                    controller.columns.isNotEmpty
-                        ? IconButton(
-                            onPressed: () {
-                              controller.deletedColumns.clear();
-                              AddEditColumnDialog(context);
-                            },
-                            icon: const Icon(Icons.edit))
-                        : Container()
+                    tableReadOnly
+                        ? Container()
+                        : controller.columns.isNotEmpty
+                            ? IconButton(
+                                onPressed: () {
+                                  controller.deletedColumns.clear();
+                                  AddEditColumnDialog(
+                                      context,
+                                      onColumnEdit ?? () {},
+                                      onColumnDelete ?? () {});
+                                },
+                                icon: const Icon(Icons.edit))
+                            : Container()
                   ],
                 ),
                 Row(
@@ -159,31 +192,37 @@ class DynamicTable extends StatelessWidget {
                     //           columnTitle: controller.columns[index],
                     //           columnIndex: index)),
                     // ),
-                    Column(
-                      children: List.generate(
-                          controller.tableMatrix.length,
-                          (index) => Padding(
-                                padding: const EdgeInsets.only(top: 0),
-                                child: IconButton(
-                                    onPressed: () {
-                                      AddEditRowDialog(
-                                          context, index, columnWidth);
-                                    },
-                                    icon: const Icon(Icons.edit)),
-                              )),
-                    ),
-                    Column(
-                      children: List.generate(
-                          controller.tableMatrix.length,
-                          (index) => Padding(
-                                padding: const EdgeInsets.only(top: 0),
-                                child: IconButton(
-                                    onPressed: () {
-                                      controller.removeRow(index);
-                                    },
-                                    icon: const Icon(Icons.delete)),
-                              )),
-                    )
+                    tableReadOnly
+                        ? Container()
+                        : Column(
+                            children: List.generate(
+                                controller.tableMatrix.length,
+                                (index) => Padding(
+                                      padding: const EdgeInsets.only(top: 0),
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                              onPressed: () {
+                                                AddEditRowDialog(
+                                                    context,
+                                                    index,
+                                                    columnWidth,
+                                                    onRowEdit ?? () {});
+                                              },
+                                              icon: const Icon(Icons.edit)),
+                                          SizedBox(
+                                            width: 10,
+                                          ),
+                                          IconButton(
+                                              onPressed: () {
+                                                controller.removeRow(index);
+                                                onRowDelete ?? () {};
+                                              },
+                                              icon: const Icon(Icons.delete))
+                                        ],
+                                      ),
+                                    )),
+                          ),
                   ],
                 )
               ],
@@ -294,7 +333,7 @@ class TableCell extends StatelessWidget {
 //   }
 // }
 
-AddNewColumnDialog(context) {
+AddNewColumnDialog(context, onColumnAdd) {
   TextEditingController columnNameController = TextEditingController();
   return showDialog(
       barrierDismissible: false,
@@ -367,6 +406,7 @@ AddNewColumnDialog(context) {
                                 controller.addColumnAtIndex(
                                     insertIndex, columnNameController.text);
                               }
+                              onColumnAdd();
                               Get.back();
                               return;
                             }
@@ -397,7 +437,7 @@ AddNewColumnDialog(context) {
           })));
 }
 
-AddNewRowDialog(context, columnWidth) {
+AddNewRowDialog(context, columnWidth, onAddRow) {
   return showDialog(
       barrierDismissible: false,
       context: context,
@@ -452,6 +492,7 @@ AddNewRowDialog(context, columnWidth) {
                                   List.generate(rowControllers.length,
                                       (index) => rowControllers[index].text),
                                   rowheights);
+                              onAddRow();
                               Get.back();
                               return;
                             },
@@ -481,7 +522,7 @@ AddNewRowDialog(context, columnWidth) {
           })));
 }
 
-AddEditRowDialog(context, int index, columnWidth) {
+AddEditRowDialog(context, int index, columnWidth, onRowEdit) {
   return showDialog(
       barrierDismissible: false,
       context: context,
@@ -542,6 +583,7 @@ AddEditRowDialog(context, int index, columnWidth) {
                                     columnWidth, rowControllers[i].text);
                                 controller.editRowHeightData(index, rowheights);
                               }
+                              onRowEdit();
                             } catch (e) {
                               print("error e: $e");
                             }
@@ -572,7 +614,7 @@ AddEditRowDialog(context, int index, columnWidth) {
           })));
 }
 
-AddEditColumnDialog(context) {
+AddEditColumnDialog(context, onColumnEdit, onColumnDelete) {
   return showDialog(
       barrierDismissible: false,
       context: context,
@@ -664,7 +706,7 @@ AddEditColumnDialog(context) {
                             controller.editColumn(List.generate(
                                 columnControllers.length,
                                 (index) => columnControllers[index].text));
-
+                            onColumnEdit();
                             // when deletedColumns is not empty
                             if (controller.deletedColumns.isNotEmpty) {
                               for (var i = 0;
@@ -672,6 +714,7 @@ AddEditColumnDialog(context) {
                                   i++) {
                                 controller
                                     .removeColumn(controller.deletedColumns[i]);
+                                onColumnDelete();
                               }
                             }
 
