@@ -4,18 +4,19 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dynamic_table/src/table/app_colors.dart';
-import 'package:flutter_dynamic_table/src/table/table_controller.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class TableWidget extends StatelessWidget {
+import 'table/app_colors.dart';
+import 'table/table_controller.dart';
+
+class DynamicTable extends StatelessWidget {
   final double columnWidth;
   final double tableHeight;
   final Color tableColor;
   final Color columnColor;
   final Color cellColor;
-  const TableWidget(
+  const DynamicTable(
       {super.key,
       this.columnWidth = 100,
       this.tableHeight = 500,
@@ -329,7 +330,8 @@ AddNewColumnDialog(context) {
                                   fontWeight: FontWeight.bold),
                             ),
                             DropdownButton(
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
                                 value: insertIndex,
                                 items: List.generate(
                                     controller.columns.length + 1,
@@ -404,28 +406,114 @@ AddNewRowDialog(context, columnWidth) {
             List<TextEditingController> rowControllers = List.generate(
                 controller.columns.length, (index) => TextEditingController());
 
-            return Container(
-              width: 300,
+            return SingleChildScrollView(
+              child: Container(
+                width: 300,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(children: [
+                      Center(
+                          child: Text("Add New Row",
+                              style: GoogleFonts.roboto(
+                                  fontWeight: FontWeight.bold, fontSize: 16))),
+                      Column(
+                        children: List.generate(
+                          controller.columns.length,
+                          (index) => CustomField(
+                            keyboardType: TextInputType.text,
+                            controller: rowControllers[index],
+                            FieldName: controller.columns[index],
+                            hintText: "Row Entry",
+                          ),
+                        ),
+                      ),
+                    ]),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ElevatedButton(
+                            onPressed: () {
+                              for (var i = 0; i < rowControllers.length; i++) {
+                                if (rowControllers[i].text.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          backgroundColor: Colors.red,
+                                          content: Text("Enter Row Name")));
+                                  return;
+                                }
+                              }
+                              List<double> rowheights = [];
+                              for (var i = 0; i < rowControllers.length; i++) {
+                                rowheights.add(calculateContainerHeight(
+                                    columnWidth, rowControllers[i].text));
+                              }
+                              controller.addNewRowtoTableMatrix(
+                                  List.generate(rowControllers.length,
+                                      (index) => rowControllers[index].text),
+                                  rowheights);
+                              Get.back();
+                              return;
+                            },
+                            style: ElevatedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10.0)),
+                                backgroundColor: AppColors.primaryColor),
+                            child: Text("Add",
+                                style:
+                                    GoogleFonts.roboto(color: Colors.white))),
+                        ElevatedButton(
+                            onPressed: () {
+                              Get.back();
+                            },
+                            style: ElevatedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10.0)),
+                                backgroundColor: AppColors.primaryColor),
+                            child: Text("Cancel",
+                                style: GoogleFonts.roboto(color: Colors.white)))
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            );
+          })));
+}
+
+AddEditRowDialog(context, int index, columnWidth) {
+  return showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (context) => AlertDialog(
+              content: GetBuilder<TableController>(builder: (controller) {
+            List<TextEditingController> rowControllers = List.generate(
+                controller.columns.length,
+                (colindex) => TextEditingController(
+                    text: controller.tableMatrix[index][colindex]));
+
+            return SingleChildScrollView(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(children: [
-                    Center(
-                        child: Text("Add New Row",
-                            style: GoogleFonts.roboto(
-                                fontWeight: FontWeight.bold, fontSize: 16))),
-                    Column(
-                      children: List.generate(
-                        controller.columns.length,
-                        (index) => CustomField(
-                          keyboardType: TextInputType.text,
-                          controller: rowControllers[index],
-                          FieldName: controller.columns[index],
-                          hintText: "Row Entry",
-                        ),
+                  Column(
+                    children: [
+                      Center(
+                          child: Text("Update Row",
+                              style: GoogleFonts.roboto(
+                                  fontWeight: FontWeight.bold, fontSize: 16))),
+                      Column(
+                        children: List.generate(
+                            controller.columns.length,
+                            (index) => CustomField(
+                                  keyboardType: TextInputType.text,
+                                  controller: rowControllers[index],
+                                  FieldName: controller.columns[index],
+                                  hintText: "Row Entry",
+                                )),
                       ),
-                    ),
-                  ]),
+                    ],
+                  ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -440,23 +528,31 @@ AddNewRowDialog(context, columnWidth) {
                                 return;
                               }
                             }
-                            List<double> rowheights = [];
-                            for (var i = 0; i < rowControllers.length; i++) {
-                              rowheights.add(calculateContainerHeight(
-                                  columnWidth, rowControllers[i].text));
+                            try {
+                              controller.editRowData(
+                                  index,
+                                  List.generate(rowControllers.length,
+                                      (index) => rowControllers[index].text));
+                              List<double> rowheights =
+                                  controller.rowsHeight[index];
+                              for (var i = 0;
+                                  i < controller.columns.length;
+                                  i++) {
+                                rowheights[i] = calculateContainerHeight(
+                                    columnWidth, rowControllers[i].text);
+                                controller.editRowHeightData(index, rowheights);
+                              }
+                            } catch (e) {
+                              print("error e: $e");
                             }
-                            controller.addNewRowtoTableMatrix(
-                                List.generate(rowControllers.length,
-                                    (index) => rowControllers[index].text),
-                                rowheights);
+
                             Get.back();
-                            return;
                           },
                           style: ElevatedButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10.0)),
                               backgroundColor: AppColors.primaryColor),
-                          child: Text("Add",
+                          child: Text("Update",
                               style: GoogleFonts.roboto(color: Colors.white))),
                       ElevatedButton(
                           onPressed: () {
@@ -476,98 +572,9 @@ AddNewRowDialog(context, columnWidth) {
           })));
 }
 
-AddEditRowDialog(context, int index, columnWidth) {
-  return showDialog(
-      barrierDismissible: false,
-      context: context,
-      builder: (context) => AlertDialog(
-              content: GetBuilder<TableController>(builder: (controller) {
-            List<TextEditingController> rowControllers = List.generate(
-                controller.columns.length,
-                (colindex) => TextEditingController(
-                    text: controller.tableMatrix[index][colindex]));
-
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  children: [
-                    Center(
-                        child: Text("Update Row",
-                            style: GoogleFonts.roboto(
-                                fontWeight: FontWeight.bold, fontSize: 16))),
-                    Column(
-                      children: List.generate(
-                          controller.columns.length,
-                          (index) => CustomField(
-                                keyboardType: TextInputType.text,
-                                controller: rowControllers[index],
-                                FieldName: controller.columns[index],
-                                hintText: "Row Entry",
-                              )),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                        onPressed: () {
-                          for (var i = 0; i < rowControllers.length; i++) {
-                            if (rowControllers[i].text.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      backgroundColor: Colors.red,
-                                      content: Text("Enter Row Name")));
-                              return;
-                            }
-                          }
-                          try {
-                            controller.editRowData(
-                                index,
-                                List.generate(rowControllers.length,
-                                    (index) => rowControllers[index].text));
-                            List<double> rowheights =
-                                controller.rowsHeight[index];
-                            for (var i = 0;
-                                i < controller.columns.length;
-                                i++) {
-                              rowheights[i] = calculateContainerHeight(
-                                  columnWidth, rowControllers[i].text);
-                              controller.editRowHeightData(index, rowheights);
-                            }
-                          } catch (e) {
-                            print("error e: $e");
-                          }
-
-                          Get.back();
-                        },
-                        style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10.0)),
-                            backgroundColor: AppColors.primaryColor),
-                        child: Text("Update",
-                            style: GoogleFonts.roboto(color: Colors.white))),
-                    ElevatedButton(
-                        onPressed: () {
-                          Get.back();
-                        },
-                        style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10.0)),
-                            backgroundColor: AppColors.primaryColor),
-                        child: Text("Cancel",
-                            style: GoogleFonts.roboto(color: Colors.white)))
-                  ],
-                )
-              ],
-            );
-          })));
-}
-
 AddEditColumnDialog(context) {
   return showDialog(
-      // barrierDismissible: false,
+      barrierDismissible: false,
       context: context,
       builder: (context) => AlertDialog(
               content: GetBuilder<TableController>(builder: (controller) {
@@ -576,118 +583,121 @@ AddEditColumnDialog(context) {
                 (colindex) =>
                     TextEditingController(text: controller.columns[colindex]));
 
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  children: [
-                    Center(
-                        child: Text("Update Column",
-                            style: GoogleFonts.roboto(
-                                fontWeight: FontWeight.bold, fontSize: 16))),
-                    Column(
-                        children: List.generate(
-                            columnControllers.length,
-                            (index) => Row(
-                                  children: [
-                                    Container(
-                                      width: 300,
-                                      child: CustomField(
-                                        keyboardType: TextInputType.text,
-                                        controller: columnControllers[index],
-                                        FieldName: controller.columns[index],
-                                        readOnly:
-                                            controller.deletedColumns.isNotEmpty
-                                                ? controller.deletedColumns
-                                                        .contains(index)
-                                                    ? true
-                                                    : false
-                                                : false,
-                                        hintText: "Column Name",
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    children: [
+                      Center(
+                          child: Text("Update Column",
+                              style: GoogleFonts.roboto(
+                                  fontWeight: FontWeight.bold, fontSize: 16))),
+                      Column(
+                          children: List.generate(
+                              columnControllers.length,
+                              (index) => Row(
+                                    children: [
+                                      Container(
+                                        width: 300,
+                                        child: CustomField(
+                                          keyboardType: TextInputType.text,
+                                          controller: columnControllers[index],
+                                          FieldName: controller.columns[index],
+                                          readOnly: controller
+                                                  .deletedColumns.isNotEmpty
+                                              ? controller.deletedColumns
+                                                      .contains(index)
+                                                  ? true
+                                                  : false
+                                              : false,
+                                          hintText: "Column Name",
+                                        ),
                                       ),
-                                    ),
-                                    IconButton(
-                                        onPressed: () {
-                                          // if current index is not in controller.deletedColumns, then add it to controller.deletedColumns
-                                          if (controller
-                                              .deletedColumns.isEmpty) {
-                                            controller
-                                                .addToDeletedColumns(index);
-                                          } else {
-                                            if (!controller.deletedColumns
-                                                .contains(index)) {
+                                      IconButton(
+                                          onPressed: () {
+                                            // if current index is not in controller.deletedColumns, then add it to controller.deletedColumns
+                                            if (controller
+                                                .deletedColumns.isEmpty) {
                                               controller
                                                   .addToDeletedColumns(index);
+                                            } else {
+                                              if (!controller.deletedColumns
+                                                  .contains(index)) {
+                                                controller
+                                                    .addToDeletedColumns(index);
+                                              }
+                                              // if current index is in controller.deletedColumns, then remove it from controller.deletedColumns
+                                              else {
+                                                controller
+                                                    .removeFromDeletedColumns(
+                                                        index);
+                                              }
                                             }
-                                            // if current index is in controller.deletedColumns, then remove it from controller.deletedColumns
-                                            else {
-                                              controller
-                                                  .removeFromDeletedColumns(
-                                                      index);
-                                            }
-                                          }
-                                        },
-                                        icon: controller.deletedColumns.isEmpty
-                                            ? const Icon(Icons.delete)
-                                            : controller.deletedColumns
-                                                    .contains(index)
-                                                ? const Icon(
-                                                    Icons.delete_forever)
-                                                : const Icon(Icons.delete))
-                                  ],
-                                ))),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                        onPressed: () {
-                          for (var i = 0; i < columnControllers.length; i++) {
-                            if (columnControllers[i].text.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      backgroundColor: Colors.red,
-                                      content: Text("Enter Column Name")));
-                              return;
+                                          },
+                                          icon: controller
+                                                  .deletedColumns.isEmpty
+                                              ? const Icon(Icons.delete)
+                                              : controller.deletedColumns
+                                                      .contains(index)
+                                                  ? const Icon(
+                                                      Icons.delete_forever)
+                                                  : const Icon(Icons.delete))
+                                    ],
+                                  ))),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ElevatedButton(
+                          onPressed: () {
+                            for (var i = 0; i < columnControllers.length; i++) {
+                              if (columnControllers[i].text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        backgroundColor: Colors.red,
+                                        content: Text("Enter Column Name")));
+                                return;
+                              }
                             }
-                          }
-                          controller.editColumn(List.generate(
-                              columnControllers.length,
-                              (index) => columnControllers[index].text));
+                            controller.editColumn(List.generate(
+                                columnControllers.length,
+                                (index) => columnControllers[index].text));
 
-                          // when deletedColumns is not empty
-                          if (controller.deletedColumns.isNotEmpty) {
-                            for (var i = 0;
-                                i < controller.deletedColumns.length;
-                                i++) {
-                              controller
-                                  .removeColumn(controller.deletedColumns[i]);
+                            // when deletedColumns is not empty
+                            if (controller.deletedColumns.isNotEmpty) {
+                              for (var i = 0;
+                                  i < controller.deletedColumns.length;
+                                  i++) {
+                                controller
+                                    .removeColumn(controller.deletedColumns[i]);
+                              }
                             }
-                          }
 
-                          Get.back();
-                          return;
-                        },
-                        style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10.0)),
-                            backgroundColor: AppColors.primaryColor),
-                        child: Text("Update",
-                            style: GoogleFonts.roboto(color: Colors.white))),
-                    ElevatedButton(
-                        onPressed: () {
-                          Get.back();
-                        },
-                        style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10.0)),
-                            backgroundColor: AppColors.primaryColor),
-                        child: Text("Cancel",
-                            style: GoogleFonts.roboto(color: Colors.white)))
-                  ],
-                )
-              ],
+                            Get.back();
+                            return;
+                          },
+                          style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.0)),
+                              backgroundColor: AppColors.primaryColor),
+                          child: Text("Update",
+                              style: GoogleFonts.roboto(color: Colors.white))),
+                      ElevatedButton(
+                          onPressed: () {
+                            Get.back();
+                          },
+                          style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.0)),
+                              backgroundColor: AppColors.primaryColor),
+                          child: Text("Cancel",
+                              style: GoogleFonts.roboto(color: Colors.white)))
+                    ],
+                  )
+                ],
+              ),
             );
           })));
 }
