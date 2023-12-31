@@ -4,15 +4,15 @@ import 'package:get/get.dart';
 class TableController extends GetxController {
   TableController({
     required this.columns,
-    required this.tableMatrix,
+    this.tableMatrix = const [],
     required this.columnWidth,
   });
   double columnWidth;
   // columns list
-  List<String> columns;
+  List columns = [];
 
   // edit column
-  editColumn(List<String> updatedColumns) {
+  editColumn(List updatedColumns) {
     columns = updatedColumns;
     update();
   }
@@ -43,17 +43,27 @@ class TableController extends GetxController {
     update();
   }
 
-  List tableMatrix; // length will == rows.length
+  List tableMatrix = []; // length will == rows.length
 
   // when adding the column at the specified index
-  addColumnAtIndex(int index, String column) {
-    columns.insert(index, column);
-    addNewColumntoTableMatrix(index);
+  addColumnAtIndex(int index, dynamic column) {
+    if (columns.isEmpty) {
+      columns.add(column);
+      addNewColumntoTableMatrix(0);
+    } else {
+      columns.insert(index, column);
+      addNewColumntoTableMatrix(index);
+    }
+
     update();
   }
 
   addNewColumntoTableMatrix(int index) {
     for (int i = 0; i < tableMatrix.length; i++) {
+      rowsHeight[i].insert(
+          index,
+          rowsHeight[i].reduce((currentMax, number) =>
+              currentMax > number ? currentMax : number));
       tableMatrix[i].insert(index, "");
     }
     update();
@@ -70,10 +80,6 @@ class TableController extends GetxController {
         tableMatrix.removeAt(i);
       }
     }
-    // // manage rowsHeight when column is removed
-    // for (int i = 0; i < rowsHeight.length; i++) {
-    //   rowsHeight[i] = calculateContainerHeight(100, tableMatrix[i][index]);
-    // }
     update();
   }
 
@@ -85,7 +91,7 @@ class TableController extends GetxController {
   }
 
   //when adding new row, a new list of empty entries will be added to tableMatrix
-  addNewRowtoTableMatrix(List<String> rowEntries, List<double> rowheights) {
+  addNewRowtoTableMatrix(List rowEntries, List<double> rowheights) {
     tableMatrix
         .add(List.generate(columns.length, (index) => rowEntries[index]));
     addRowsHeight(rowheights);
@@ -93,14 +99,14 @@ class TableController extends GetxController {
   }
 
   //edit row data using index
-  editRowData(int index, List<String> rowEntries) {
+  editRowData(int index, List rowEntries) {
     tableMatrix[index] =
         List.generate(columns.length, (index) => rowEntries[index]);
     update();
   }
 
   @override
-  void onInit() {
+  void onInit() async {
     // TODO: implement onInit
     super.onInit();
     List<List<double>> rowheightMatrix = [];
@@ -113,6 +119,7 @@ class TableController extends GetxController {
       rowheightMatrix.add(rowheights);
     }
     rowsHeight = rowheightMatrix;
+
     update();
   }
 }

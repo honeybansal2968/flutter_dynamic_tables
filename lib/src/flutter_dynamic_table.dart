@@ -10,23 +10,23 @@ import 'table/app_colors.dart';
 import 'table/table_controller.dart';
 
 class DynamicTable extends StatelessWidget {
-  final double columnWidth;
-  final double tableHeight;
-  final Color tableColor;
-  final String tableTitle;
-  final Color columnColor;
-  final Color cellColor;
-  final List<String> columns;
-  final List rows;
-  final Function? onColumnAdd;
-  final Function? onColumnDelete;
-  final Function? onColumnEdit;
-  final Function? onRowAdd;
-  final Function? onRowEdit;
-  final Function? onRowDelete;
-  final bool tableReadOnly;
-  final TextStyle tableTitleStyle;
-  const DynamicTable(
+  double columnWidth;
+  double tableHeight;
+  Color tableColor;
+  String tableTitle;
+  Color columnColor;
+  Color cellColor;
+  List columns;
+  List rows;
+  ValueChanged<Map<int, dynamic>>? onColumnAdd;
+  ValueChanged? onColumnDelete;
+  ValueChanged? onColumnEdit;
+  ValueChanged? onRowAdd;
+  ValueChanged<Map<int, dynamic>>? onRowEdit;
+  ValueChanged? onRowDelete;
+  bool tableReadOnly;
+  TextStyle tableTitleStyle;
+  DynamicTable(
       {super.key,
       required this.tableTitle,
       this.tableTitleStyle = const TextStyle(fontWeight: FontWeight.bold),
@@ -50,7 +50,9 @@ class DynamicTable extends StatelessWidget {
     Size size = MediaQuery.of(context).size;
     return GetBuilder<TableController>(
         init: TableController(
-            columns: columns, tableMatrix: rows, columnWidth: columnWidth),
+            columns: columns.isEmpty ? [] : columns,
+            tableMatrix: rows.isEmpty ? [] : rows,
+            columnWidth: columnWidth),
         builder: (controller) {
           return SizedBox(
             height: tableHeight,
@@ -69,7 +71,7 @@ class DynamicTable extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Center(
                         child: Text(
-                          "Enterprise Table",
+                          tableTitle,
                           style: tableTitleStyle,
                         ),
                       ),
@@ -161,26 +163,60 @@ class DynamicTable extends StatelessWidget {
                       children: List.generate(
                           controller.tableMatrix.length,
                           (index) => Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: List.generate(
-                                    controller.columns.length, (innerindex) {
-                                  // get max height from controller.rowsHeight[index]
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children:
+                                        List.generate(controller.columns.length,
+                                            (innerindex) {
+                                      // get max height from controller.rowsHeight[index]
 
-                                  double height = 20;
-                                  for (var i = 0;
-                                      i < controller.rowsHeight[index].length;
-                                      i++) {
-                                    height = max(height,
-                                        controller.rowsHeight[index][i]);
-                                  }
-                                  return TableCell(
-                                      height: height,
-                                      cellColor: cellColor,
-                                      title: controller.tableMatrix[index]
-                                          [innerindex],
-                                      columnWidth: columnWidth);
-                                }),
+                                      double height = 20;
+                                      for (var i = 0;
+                                          i <
+                                              controller
+                                                  .rowsHeight[index].length;
+                                          i++) {
+                                        height = max(height,
+                                            controller.rowsHeight[index][i]);
+                                      }
+                                      return TableCell(
+                                          height: height,
+                                          cellColor: cellColor,
+                                          title: controller.tableMatrix[index]
+                                              [innerindex],
+                                          columnWidth: columnWidth);
+                                    }),
+                                  ),
+                                  tableReadOnly
+                                      ? Container()
+                                      : Row(
+                                          children: [
+                                            IconButton(
+                                                onPressed: () {
+                                                  AddEditRowDialog(
+                                                      context,
+                                                      index,
+                                                      columnWidth,
+                                                      onRowEdit);
+                                                },
+                                                icon: const Icon(Icons.edit)),
+                                            const SizedBox(
+                                              width: 10,
+                                            ),
+                                            IconButton(
+                                                onPressed: () {
+                                                  controller.removeRow(index);
+                                                  if (onRowDelete != null) {
+                                                    onRowDelete!(index);
+                                                  }
+                                                },
+                                                icon: const Icon(Icons.delete))
+                                          ],
+                                        ),
+                                ],
                               )),
                     ),
                     // Row(
@@ -192,37 +228,16 @@ class DynamicTable extends StatelessWidget {
                     //           columnTitle: controller.columns[index],
                     //           columnIndex: index)),
                     // ),
-                    tableReadOnly
-                        ? Container()
-                        : Column(
-                            children: List.generate(
-                                controller.tableMatrix.length,
-                                (index) => Padding(
-                                      padding: const EdgeInsets.only(top: 0),
-                                      child: Row(
-                                        children: [
-                                          IconButton(
-                                              onPressed: () {
-                                                AddEditRowDialog(
-                                                    context,
-                                                    index,
-                                                    columnWidth,
-                                                    onRowEdit ?? () {});
-                                              },
-                                              icon: const Icon(Icons.edit)),
-                                          SizedBox(
-                                            width: 10,
-                                          ),
-                                          IconButton(
-                                              onPressed: () {
-                                                controller.removeRow(index);
-                                                onRowDelete ?? () {};
-                                              },
-                                              icon: const Icon(Icons.delete))
-                                        ],
-                                      ),
-                                    )),
-                          ),
+                    // tableReadOnly
+                    //     ? Container()
+                    //     : Column(
+                    //         children: List.generate(
+                    //             controller.tableMatrix.length,
+                    //             (index) => Padding(
+                    //                   padding: EdgeInsets.only(
+                    //                       top: 0),
+                    //                   child:   )),
+                    //       ),
                   ],
                 )
               ],
@@ -246,14 +261,14 @@ double calculateContainerHeight(double containerWidth, String text) {
 }
 
 class TableColumn extends StatelessWidget {
-  const TableColumn(
+  TableColumn(
       {super.key,
       required this.title,
       required this.columnWidth,
       required this.columnColor});
-  final String title;
-  final double columnWidth;
-  final Color columnColor;
+  String title;
+  double columnWidth;
+  Color columnColor;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -276,16 +291,16 @@ class TableColumn extends StatelessWidget {
 }
 
 class TableCell extends StatelessWidget {
-  const TableCell(
+  TableCell(
       {super.key,
       required this.title,
       required this.height,
       required this.columnWidth,
       required this.cellColor});
-  final String title;
-  final double height;
-  final double columnWidth;
-  final Color cellColor;
+  String title;
+  double height;
+  double columnWidth;
+  Color cellColor;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -311,8 +326,8 @@ class TableCell extends StatelessWidget {
 // class ColumnRowWidget extends StatelessWidget {
 //   const ColumnRowWidget(
 //       {super.key, required this.columnTitle, required this.columnIndex});
-//   final String columnTitle;
-//   final int columnIndex;
+//     String columnTitle;
+//     int columnIndex;
 //   @override
 //   Widget build(BuildContext context) {
 //     return Column(
@@ -333,7 +348,7 @@ class TableCell extends StatelessWidget {
 //   }
 // }
 
-AddNewColumnDialog(context, onColumnAdd) {
+AddNewColumnDialog(context, ValueChanged<Map<int, dynamic>>? onColumnAdd) {
   TextEditingController columnNameController = TextEditingController();
   return showDialog(
       barrierDismissible: false,
@@ -399,14 +414,12 @@ AddNewColumnDialog(context, onColumnAdd) {
                                       content: Text("Enter Column Name")));
                               return;
                             } else {
-                              if (controller.columns.isEmpty) {
-                                controller.addColumnAtIndex(
-                                    0, columnNameController.text);
-                              } else {
-                                controller.addColumnAtIndex(
-                                    insertIndex, columnNameController.text);
+                              controller.addColumnAtIndex(
+                                  insertIndex, columnNameController.text);
+                              if (onColumnAdd != null) {
+                                onColumnAdd(
+                                    {insertIndex: columnNameController.text});
                               }
-                              onColumnAdd();
                               Get.back();
                               return;
                             }
@@ -488,11 +501,14 @@ AddNewRowDialog(context, columnWidth, onAddRow) {
                                 rowheights.add(calculateContainerHeight(
                                     columnWidth, rowControllers[i].text));
                               }
+                              List newRowData = List.generate(
+                                  rowControllers.length,
+                                  (index) => rowControllers[index].text);
                               controller.addNewRowtoTableMatrix(
-                                  List.generate(rowControllers.length,
-                                      (index) => rowControllers[index].text),
-                                  rowheights);
-                              onAddRow();
+                                  newRowData, rowheights);
+                              if (onAddRow != null) {
+                                onAddRow(newRowData);
+                              }
                               Get.back();
                               return;
                             },
@@ -522,7 +538,8 @@ AddNewRowDialog(context, columnWidth, onAddRow) {
           })));
 }
 
-AddEditRowDialog(context, int index, columnWidth, onRowEdit) {
+AddEditRowDialog(context, int index, columnWidth,
+    ValueChanged<Map<int, dynamic>>? onRowEdit) {
   return showDialog(
       barrierDismissible: false,
       context: context,
@@ -581,9 +598,14 @@ AddEditRowDialog(context, int index, columnWidth, onRowEdit) {
                                   i++) {
                                 rowheights[i] = calculateContainerHeight(
                                     columnWidth, rowControllers[i].text);
-                                controller.editRowHeightData(index, rowheights);
                               }
-                              onRowEdit();
+                              controller.editRowHeightData(index, rowheights);
+                              if (onRowEdit != null) {
+                                onRowEdit({
+                                  index: List.generate(rowControllers.length,
+                                      (index) => rowControllers[index].text)
+                                });
+                              }
                             } catch (e) {
                               print("error e: $e");
                             }
@@ -706,7 +728,11 @@ AddEditColumnDialog(context, onColumnEdit, onColumnDelete) {
                             controller.editColumn(List.generate(
                                 columnControllers.length,
                                 (index) => columnControllers[index].text));
-                            onColumnEdit();
+                            if (onColumnEdit != null) {
+                              onColumnEdit(List.generate(
+                                  columnControllers.length,
+                                  (index) => columnControllers[index].text));
+                            }
                             // when deletedColumns is not empty
                             if (controller.deletedColumns.isNotEmpty) {
                               for (var i = 0;
@@ -714,7 +740,9 @@ AddEditColumnDialog(context, onColumnEdit, onColumnDelete) {
                                   i++) {
                                 controller
                                     .removeColumn(controller.deletedColumns[i]);
-                                onColumnDelete();
+                                if (onColumnDelete != null) {
+                                  onColumnDelete(i);
+                                }
                               }
                             }
 
@@ -746,14 +774,14 @@ AddEditColumnDialog(context, onColumnEdit, onColumnDelete) {
 }
 
 class CustomField extends StatelessWidget {
-  final double? width;
-  final String? FieldName;
-  final TextInputType keyboardType;
-  final String? hintText;
-  final String? Function(String?)? validator;
-  final TextEditingController controller;
-  final bool readOnly;
-  const CustomField({
+  double? width;
+  String? FieldName;
+  TextInputType keyboardType;
+  String? hintText;
+  String? Function(String?)? validator;
+  TextEditingController controller;
+  bool readOnly;
+  CustomField({
     Key? key,
     this.validator,
     this.width,
